@@ -10,6 +10,70 @@
 
 ---
 
+## 部署为 rc 服务
+
+目录约定：二进制 `/usr/local/bin/sing-box`，工作目录 `/usr/local/etc/sing-box/`（`-D`：规则集、cache_file、dashboard 等运行时文件都落在该目录），配置 `/usr/local/etc/sing-box/config.json`。
+
+`/usr/local/etc/rc.d/sing_box`：
+
+```sh
+#!/bin/sh
+
+# PROVIDE: sing_box
+# REQUIRE: LOGIN DAEMON NETWORKING
+# BEFORE:  securelevel
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="sing_box"
+rcvar="sing_box_enable"
+
+# 用 daemon(8) 包装：sing-box 自身不写 pidfile，daemon 负责守护与 pid 管理。
+# 注意必须 root 运行（FreeBSD 无 setcap，tun/pf/sysctl 需要特权）。
+command="/usr/sbin/daemon"
+command_args="-p /var/run/${name}.pid -o /var/log/${name}.log /usr/local/bin/sing-box run -D /usr/local/etc/sing-box -c /usr/local/etc/sing-box/config.json"
+procname="/usr/local/bin/sing-box"
+pidfile="/var/run/${name}.pid"
+
+load_rc_config "${name}"
+
+: "${sing_box_enable:="NO"}"
+
+run_rc_command "$1"
+```
+
+安装与启用：
+
+```sh
+chmod +x /usr/local/etc/rc.d/sing_box
+sysrc sing_box_enable=YES
+service sing_box start
+service sing_box status
+```
+
+**模式相关的启动顺序要求**：
+
+- **Tun 模式**：建议把 FIB tunable 写进 loader.conf（服务脚本启动时的运行时 sysctl 写入可能因系统状态失败）：
+
+  ```
+  # /boot/loader.conf
+  net.fibs=2023
+  net.add_addr_allfibs=1
+  ```
+
+- **Redirect 模式**：pf 必须先于 sing-box 就绪（redirect 入站依赖 `/dev/pf` 做 DIOCNATLOOK）。把 REQUIRE 行改为：
+
+  ```sh
+  # REQUIRE: LOGIN DAEMON NETWORKING pf
+  ```
+
+  并 `sysrc pf_enable=YES`（pf 规则本身已写入 `/etc/pf.conf`，随 pf 服务加载）。
+
+**日志**：`daemon -o` 把 sing-box 输出追加到 `/var/log/sing_box.log`；配 logrotate（`newsyslog`）或接受持续增长，按需。
+
+---
+
 ## 模式一：Tun 模式（本机 + 可扩展为网关）
 
 ### 配置
