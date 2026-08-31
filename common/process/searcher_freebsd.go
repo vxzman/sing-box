@@ -211,27 +211,38 @@ func initOffsets() error {
 }
 
 func newSearcher(major int, machine string) *searcher {
-	var vflag int
+	// The layout of xinpgen/xinpcb/xtcpcb/xfile is identical on the 64-bit
+	// (LP64) targets. 32-bit targets have different pointer and ksize_t
+	// widths and are not supported.
 	switch machine {
-	case "i386":
-		vflag = 388
 	case "amd64", "arm64", "riscv":
-		vflag = 392
 	default:
 		return nil
 	}
-	// TODO: revalidate the offsets against the local freebsd-src headers
-	// when the source checkout is complete.
+	// Offsets below were verified against freebsd-src (sys/sys/socketvar.h,
+	// sys/netinet/in_pcb.h, sys/netinet/tcp_var.h, sys/sys/file.h) for
+	// releng/12.4, releng/13.4, releng/14.2 and main (15.0), computing
+	// struct layouts with a C compiler (SysV ABI, LP64). They are identical
+	// across all these versions:
+	//   sizeof(xinpgen) = 64, sizeof(xinpcb) = 400, sizeof(xtcpcb) = 744,
+	//   sizeof(xfile) = 128.
+	//   xinpcb: xso_so @ 16, ie_lport @ 254, v4 laddr @ 284, v6 laddr @ 272,
+	//           inp_vflag @ 392. Note that inp_inc occupies 48 bytes inside
+	//           xinpcb due to uint64 alignment padding.
+	//   xfile:  xf_pid @ 8, xf_data @ 56.
 	switch major {
 	case 12, 13, 14, 15:
 		return &searcher{
 			headSize:     64,
 			tcpItemSize:  744,
 			udpItemSize:  400,
-			udpInpOffset: 8,
+			// TCP items start with xt_len (8 bytes) so the embedded xinpcb
+			// begins at offset 8; UDP items are plain xinpcb and begin
+			// with xi_len at offset 0.
+			udpInpOffset: 0,
 			port:         254,
 			ip:           284,
-			vflag:        vflag,
+			vflag:        392,
 			socket:       16,
 			fileItemSize: 128,
 			data:         56,
