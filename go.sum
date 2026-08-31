@@ -400,6 +400,8 @@ github.com/vxzman/sing-tun v0.9.0-beta.4.0.20260831091849-4b49710f1ba1 h1:5O/9ko
 github.com/vxzman/sing-tun v0.9.0-beta.4.0.20260831091849-4b49710f1ba1/go.mod h1:3EgPst7agntRO7D6GOsiZ1l9FoqdLeuWmKT5TnWkmf0=
 github.com/vxzman/sing-tun v0.9.0-beta.4.0.20260831101756-e17baac0f39a h1:POxClgI5xW5Zcg76hFrvwaupXvPF+eyLuyxmwI5CMPk=
 github.com/vxzman/sing-tun v0.9.0-beta.4.0.20260831101756-e17baac0f39a/go.mod h1:3EgPst7agntRO7D6GOsiZ1l9FoqdLeuWmKT5TnWkmf0=
+github.com/vxzman/sing-tun v0.9.0-beta.4.0.20260831141438-60477694916f h1:bnYCxyNjHyTrx9KwwqszQ4QvXJPLKoSDQplK+auwSUI=
+github.com/vxzman/sing-tun v0.9.0-beta.4.0.20260831141438-60477694916f/go.mod h1:3EgPst7agntRO7D6GOsiZ1l9FoqdLeuWmKT5TnWkmf0=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 h1:ilQV1hzziu+LLM3zUTJ0trRztfwgjqKnBWNtSRkbmwM=
