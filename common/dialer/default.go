@@ -138,6 +138,11 @@ func NewDefault(ctx context.Context, options option.DialerOptions) (*DefaultDial
 		markFunc := networkManager.AutoRedirectOutputMarkFunc()
 		dialer.Control = control.Append(dialer.Control, markFunc)
 		listener.Control = control.Append(listener.Control, markFunc)
+		fibFunc := networkManager.OutputFIBFunc()
+		// Listeners stay in the default FIB so that incoming connections
+		// are still deliverable; only outbound sockets are moved to the
+		// dedicated FIB for loop prevention.
+		dialer.Control = control.Append(dialer.Control, fibFunc)
 	}
 	if options.ReuseAddr {
 		listener.Control = control.Append(listener.Control, control.ReuseAddr())

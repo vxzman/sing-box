@@ -285,6 +285,16 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 			}
 		}
 	}
+	if C.IsFreebsd && options.AutoRoute {
+		// On FreeBSD, loop prevention is done by moving the outbound
+		// sockets of this process into a dedicated FIB
+		// (iproute2_table_index) that holds a copy of the real default
+		// gateway instead of the tun capture routes.
+		err = networkManager.RegisterOutputFIB(inbound.tunOptions.IPRoute2TableIndex)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return inbound, nil
 }
 

@@ -42,6 +42,7 @@ type NetworkManager struct {
 	autoDetectInterface      bool
 	defaultOptions           adapter.NetworkOptions
 	autoRedirectOutputMark   uint32
+	outputFIB                int
 	networkMonitor           tun.NetworkUpdateMonitor
 	interfaceMonitor         tun.DefaultInterfaceMonitor
 	packageManager           tun.PackageManager
@@ -414,6 +415,23 @@ func (r *NetworkManager) RegisterAutoRedirectOutputMark(mark uint32) error {
 	}
 	r.autoRedirectOutputMark = mark
 	return nil
+}
+
+func (r *NetworkManager) RegisterOutputFIB(fib int) error {
+	if r.outputFIB > 0 {
+		return E.New("only one tun can be configured on this platform")
+	}
+	r.outputFIB = fib
+	return nil
+}
+
+func (r *NetworkManager) OutputFIBFunc() control.Func {
+	return func(network, address string, conn syscall.RawConn) error {
+		if r.outputFIB == 0 {
+			return nil
+		}
+		return setSocketFIB(r.outputFIB)(network, address, conn)
+	}
 }
 
 func (r *NetworkManager) AutoRedirectOutputMark() uint32 {

@@ -28,6 +28,8 @@ type NetworkManager interface {
 	RegisterAutoRedirectOutputMark(mark uint32) error
 	AutoRedirectOutputMark() uint32
 	AutoRedirectOutputMarkFunc() control.Func
+	RegisterOutputFIB(fib int) error
+	OutputFIBFunc() control.Func
 	NetworkMonitor() tun.NetworkUpdateMonitor
 	InterfaceMonitor() tun.DefaultInterfaceMonitor
 	PackageManager() tun.PackageManager
