@@ -424,6 +424,13 @@ func (r *NetworkManager) RegisterOutputFIB(fib int) error {
 	if r.outputFIB > 0 {
 		return E.New("only one tun can be configured on this platform")
 	}
+	// The FIB must be set up eagerly: socket binding takes effect at
+	// registration time, before the tun device (which repeats the same
+	// preparation) is created at inbound start.
+	err := setupOutputFIB(fib)
+	if err != nil {
+		return err
+	}
 	r.outputFIB = fib
 	return nil
 }

@@ -13,3 +13,7 @@ func setSocketFIB(fib int) control.Func {
 		return nil
 	}
 }
+
+func setupOutputFIB(fib int) error {
+	return nil
+}
