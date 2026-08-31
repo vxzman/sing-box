@@ -52,23 +52,30 @@ service sing_box start
 service sing_box status
 ```
 
-**模式相关的启动顺序要求**：
+**系统级配置（按模式选做，都是持久化配置）**：
 
-- **Tun 模式**：建议把 FIB tunable 写进 loader.conf（服务脚本启动时的运行时 sysctl 写入可能因系统状态失败）：
+1. **Tun 模式 —— `/boot/loader.conf`**（FIB tunable，只读于运行时，必须写文件 + 重启一次；sing-box 启动时会先尝试运行时写入，写不进去才报错提示这里）：
 
-  ```
-  # /boot/loader.conf
-  net.fibs=2023
-  net.add_addr_allfibs=1
-  ```
+   ```
+   net.fibs=2023               # 必须 > iproute2_table_index（2022）
+   net.add_addr_allfibs=1      # tun 地址对所有 FIB 可见（回环避免依赖）
+   ```
 
-- **Redirect 模式**：pf 必须先于 sing-box 就绪（redirect 入站依赖 `/dev/pf` 做 DIOCNATLOOK）。把 REQUIRE 行改为：
+2. **网关模式 —— `/etc/sysctl.conf`**（局域网设备走本机代理时才需要；仅本机使用**不要开**）：
 
-  ```sh
-  # REQUIRE: LOGIN DAEMON NETWORKING pf
-  ```
+   ```
+   net.inet.ip.forwarding=1
+   ```
 
-  并 `sysrc pf_enable=YES`（pf 规则本身已写入 `/etc/pf.conf`，随 pf 服务加载）。
+   配合：局域网客户机把网关/DNS 指向本机。不需要 IP 转发时（tun 只管本机、或 redirect 模式）保持默认 0。
+
+3. **Redirect 模式 —— pf 服务 + rc 启动顺序**：pf 必须先于 sing-box 就绪（redirect 入站依赖 `/dev/pf` 做 DIOCNATLOOK）。rc 脚本的 REQUIRE 行改为：
+
+   ```sh
+   # REQUIRE: LOGIN DAEMON NETWORKING pf
+   ```
+
+   并 `sysrc pf_enable=YES`（pf 规则本身已写入 `/etc/pf.conf`，随 pf 服务加载；pf 内核模块随服务自动 kldload）。
 
 **日志**：`daemon -o` 把 sing-box 输出追加到 `/var/log/sing_box.log`；配 logrotate（`newsyslog`）或接受持续增长，按需。
 
@@ -134,8 +141,11 @@ echo 'nameserver 172.19.0.2' > /etc/resolv.conf    # 仅在 tun 起来后可达
 
 ### 扩展为网关模式（局域网设备走代理）
 
+持久化开启转发（见"部署为 rc 服务"一节的系统级配置）：
+
 ```sh
-sysctl net.inet.ip.forwarding=1
+sysrc -f /etc/sysctl.conf net.inet.ip.forwarding=1   # 或直接编辑文件
+sysctl net.inet.ip.forwarding=1                      # 当前立即生效
 # 局域网客户机把网关指向这台 FreeBSD 的 IP 即可
 ```
 
