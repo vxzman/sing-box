@@ -256,6 +256,9 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		inbound.routeExcludeRuleSet = append(inbound.routeExcludeRuleSet, ruleSet)
 	}
 	if options.AutoRedirect {
+		if !C.IsLinux {
+			return nil, E.New("`auto_redirect` is only supported on Linux; on FreeBSD loop prevention uses the dedicated FIB (`iproute2_table_index`) automatically")
+		}
 		if !options.AutoRoute {
 			return nil, E.New("`auto_route` is required by `auto_redirect`")
 		}

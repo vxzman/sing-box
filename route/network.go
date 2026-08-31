@@ -70,11 +70,14 @@ type NetworkManager struct {
 
 func NewNetworkManager(ctx context.Context, logger logger.ContextLogger, options option.RouteOptions, dnsOptions option.DNSOptions) (*NetworkManager, error) {
 	defaultDomainResolver := common.PtrValueOrDefault(options.DefaultDomainResolver)
-	if options.AutoDetectInterface && !(C.IsLinux || C.IsDarwin || C.IsWindows) {
+	// Interface binding is a no-op on FreeBSD (routing table selection is
+	// done natively), but the options are accepted for configuration
+	// compatibility.
+	if options.AutoDetectInterface && !(C.IsLinux || C.IsDarwin || C.IsWindows || C.IsFreebsd) {
 		return nil, E.New("`auto_detect_interface` is only supported on Linux, Windows and macOS")
 	} else if options.OverrideAndroidVPN && !C.IsAndroid {
 		return nil, E.New("`override_android_vpn` is only supported on Android")
-	} else if options.DefaultInterface != "" && !(C.IsLinux || C.IsDarwin || C.IsWindows) {
+	} else if options.DefaultInterface != "" && !(C.IsLinux || C.IsDarwin || C.IsWindows || C.IsFreebsd) {
 		return nil, E.New("`default_interface` is only supported on Linux, Windows and macOS")
 	} else if options.DefaultMark != 0 && !C.IsLinux {
 		return nil, E.New("`default_mark` is only supported on linux")
