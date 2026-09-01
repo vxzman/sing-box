@@ -1,0 +1,49 @@
+name: FreeBSD
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: freebsd, goarch: amd64 }
+          - { goos: freebsd, goarch: arm64 }
+          - { goos: freebsd, goarch: arm, goarm: "7" }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.7
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: 0
+          VERSION: 1.14f
+        run: |
+          go build -v -trimpath -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=${{ env.VERSION }}' -s -w -buildid=" -tags "with_gvisor,with_quic,with_utls,with_acme,with_clash_api" -o sing-box ./cmd/sing-box
+          if [ "${{ matrix.goarch }}" == "arm" ]; then
+            tar -czf sing-box-${{ matrix.goos }}-${{ matrix.goarch }}v${{ matrix.goarm }}.tar.gz sing-box
+          else
+            tar -czf sing-box-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz sing-box
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sing-box-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm }}
+          path: sing-box-*.tar.gz
