@@ -168,7 +168,66 @@ xf_pid=8    xf_data=56
 
 ---
 
-## 8. 真机测试记录（FreeBSD 15.1-RELEASE VM，libvirt 网络）
+## 8. 上游版本跟进维护流程
+
+上游每出新版本（如 1.14.x 小版本或 1.15 大版本）时按此流程走。核心策略：**两个分支都 rebase 上游**，保持线性历史（将来往 SagerNet 提 PR 也干净）。
+
+### 8.1 sing-tun
+
+```bash
+cd sing-tun-freebsd
+git fetch upstream
+# 先看 sing-box 新版 go.mod 里 pin 的 sing-tun 版本，rebase 到那个 tag（而不是 dev 任意提交）：
+git rebase v0.9.0-beta.5          # 示例：新 tag
+# —— 冲突热点（按概率排序）——
+# tun_freebsd.go        Options 结构变化、Tun 接口变化
+# tun_freebsd_gvisor.go gvisor 版本升级 → LinkEndpoint/NetworkLinkEndpoint 接口变化
+#                       （对齐方法：先看同版本 tun_darwin_gvisor.go 怎么改的）
+# tun.go                Inet4/6GatewayAddr 的 switch 分支
+# monitor_route_bsd.go  monitor 接口变化（对齐 monitor_darwin.go 的演化）
+# tun_rules.go          常量处
+# 解完冲突后编译三平台：
+GOTOOLCHAIN=go1.26.7 GOPROXY=https://goproxy.cn GOOS=freebsd GOARCH=amd64 CGO_ENABLED=0 go build ./...
+GOTOOLCHAIN=go1.26.7 GOPROXY=https://goproxy.cn GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build ./...
+GOTOOLCHAIN=go1.26.7 GOPROXY=https://goproxy.cn GOOS=darwin  GOARCH=arm64 CGO_ENABLED=0 go build ./...
+git push origin freebsd
+# 手算新伪版本（见第 1 节）供 sing-box 更新
+```
+
+### 8.2 sing-box
+
+```bash
+cd sing-box-freebsd
+git fetch upstream
+git rebase upstream/testing
+# —— 冲突热点 ——
+# go.mod                      replace 行（保留下面的 fork 伪版本，更新之）
+# route/network.go            RegisterOutputFIB/OutputFIBFunc 区域（NetworkManager 结构经常动）
+# adapter/network.go          NetworkManager 接口方法
+# common/dialer/default.go    dialer control 链（上游常调整 Append 顺序）
+# protocol/tun/inbound.go     注册 FIB 的代码块（注意保留 auto_redirect 的非 Linux gate）
+# common/process/searcher.go  Searcher 接口若有变化
+# experimental/libbox/*       上游新增平台文件时补 freebsd tag / stub
+# 更新 replace 到 sing-tun 新伪版本 → go mod download → 编译三平台 → 真机冒烟 → push
+```
+
+### 8.3 每次大版本必须复查的点
+
+1. **新平台抽象**：上游 diff 里出现新的 `*_linux.go`/`*_darwin.go`/`*_windows.go` 文件或新 stub 时，判断 FreeBSD 该共享（改 tag）还是新增实现（如 1.14 的 network_environment）
+2. **go.mod 的 gvisor/sing 版本**：跟着 sing-tun 的依赖走，接口变化以 darwin 版为参照物
+3. **FreeBSD 大版本（16）**：进程匹配的偏移表必须重新验证——用 `/tmp/offsetcheck/offsets.c`（C 编译器布局计算器，建议提交进仓库 docs 目录）对照新 header；tun ioctl 数字对照 `sys/net/if_tun.h`
+4. **版本号**：`1.15f`（上游版本 + f），构建时 ldflags 注入
+5. **真机冒烟清单**（每次发布前过一遍）：启动 → `sysctl net.fibs` → `netstat -rn -F 0/-F 2022` → curl 公网 + CPU idle（回环检查）→ kill -9 后设备/路由清理 → （redirect 模式）pf 计数 + DIOCNATLOOK 日志
+
+### 8.4 长期减负路线
+
+- **sing-tun 的 tun_freebsd 部分提 PR 回 SagerNet**（他们接受贡献）：成功后 sing-tun fork 可退役，sing-box 只维护平台小文件
+- **CI 推送后**（workflow scope 补上）：每次 release 打 tag 自动构建，手动只剩 rebase 和真机冒烟
+- **不要学 bsd-box 的补丁式维护**（patch 套 release）：它的停更就是因为补丁基线漂移成本失控
+
+---
+
+## 9. 真机测试记录（FreeBSD 15.1-RELEASE VM，libvirt 网络）
 
 | 验证点 | 结果 |
 |---|---|
