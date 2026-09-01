@@ -33,17 +33,30 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm }}
           CGO_ENABLED: 0
-          VERSION: 1.14f
+          # Tag pushes embed the tag as the version (e.g. v1.14f); manual
+          # dispatches fall back to dev.
+          VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'dev' }}
         run: |
           go build -v -trimpath -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=${{ env.VERSION }}' -s -w -buildid=" -tags "with_gvisor,with_quic,with_utls,with_acme,with_clash_api" -o sing-box ./cmd/sing-box
           if [ "${{ matrix.goarch }}" == "arm" ]; then
-            tar -czf sing-box-${{ matrix.goos }}-${{ matrix.goarch }}v${{ matrix.goarm }}.tar.gz sing-box
+            ARCHIVE="sing-box-${{ env.VERSION }}-freebsd-${{ matrix.goarch }}v${{ matrix.goarm }}.tar.gz"
           else
-            tar -czf sing-box-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz sing-box
+            ARCHIVE="sing-box-${{ env.VERSION }}-freebsd-${{ matrix.goarch }}.tar.gz"
           fi
+          tar -czf "${ARCHIVE}" sing-box
+          echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: sing-box-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm }}
           path: sing-box-*.tar.gz
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          prerelease: false
+          files: ${{ env.ARCHIVE }}
