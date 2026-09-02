@@ -163,11 +163,12 @@ func execRoute(fib int, rtmType int, destination netip.Prefix, gateway netip.Add
 			syscall.RTAX_GATEWAY: &route.Inet4Addr{IP: gateway.As4()},
 		}
 	} else {
-		routeMessage.Addrs = []route.Addr{
-			syscall.RTAX_DST:     &route.Inet6Addr{IP: destination.Addr().As16()},
-			syscall.RTAX_NETMASK: &route.Inet6Addr{IP: netip.MustParseAddr(net.IP(net.CIDRMask(destination.Bits(), 128)).String()).As16()},
-			syscall.RTAX_GATEWAY: &route.Inet6Addr{IP: gateway.As16()},
-		}
+		// Sized to RTAX_MAX like x/net/route itself: RTAX_IFP (4) is
+		// beyond a compact literal; nil slots are skipped by Marshal.
+		routeMessage.Addrs = make([]route.Addr, syscall.RTAX_MAX)
+		routeMessage.Addrs[syscall.RTAX_DST] = &route.Inet6Addr{IP: destination.Addr().As16()}
+		routeMessage.Addrs[syscall.RTAX_NETMASK] = &route.Inet6Addr{IP: netip.MustParseAddr(net.IP(net.CIDRMask(destination.Bits(), 128)).String()).As16()}
+		routeMessage.Addrs[syscall.RTAX_GATEWAY] = &route.Inet6Addr{IP: gateway.As16()}
 		if gatewayIndex != 0 {
 			// Scope the gateway to its interface, which is required for
 			// link-local IPv6 gateways.

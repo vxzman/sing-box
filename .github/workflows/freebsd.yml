@@ -25,7 +25,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.26.7
+          go-version: 1.27.1
 
       - name: Build
         env:
@@ -33,6 +33,11 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm }}
           CGO_ENABLED: 0
+          # The vxzman/sing-tun pseudo-version may not have go.sum entries
+          # yet; resolve them at build time. The fork is outside the sum
+          # database.
+          GOFLAGS: -mod=mod
+          GONOSUMDB: github.com/vxzman
           # Tag pushes embed the tag as the version (e.g. v1.14f); manual
           # dispatches fall back to dev.
           VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'dev' }}

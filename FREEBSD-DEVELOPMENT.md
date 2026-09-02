@@ -39,19 +39,20 @@ git -c credential.helper='!f() { echo username=vxzman; echo password=$(gh auth t
 ## 2. 构建
 
 ```bash
-GOTOOLCHAIN=go1.26.7 GOPROXY=https://goproxy.cn \
+GOTOOLCHAIN=go1.27.1 GOPROXY=https://goproxy.cn \
 GOOS=freebsd GOARCH=amd64 CGO_ENABLED=0 \
 go build -trimpath \
-  -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=1.14f' -s -w -buildid=" \
+  -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=1.14.1f' -s -w -buildid=" \
   -tags 'with_gvisor,with_quic,with_utls,with_acme,with_clash_api' \
   -o sing-box ./cmd/sing-box
 ```
 
 环境坑（都要记牢）：
-- **本机 `~/.local/go`（1.27.0）是坏安装**（解压覆盖残留 1.26 文件，`internal/strconv` 新旧文件共存必炸）→ 必须 `GOTOOLCHAIN=go1.26.7`（已缓存于模块目录，从 goproxy.cn 下载）
-- **boxdd 的 oomprofile linkname 检查**在 1.26.x 上必失败 → `-ldflags=-checklinkname=0`（上游 CI 用自己的 build 工具内置了该 flag）
+- **本机 `~/.local/go`（1.27.0）是坏安装**（解压覆盖残留 1.26 文件，`internal/strconv` 新旧文件共存必炸）→ 必须 `GOTOOLCHAIN=go1.27.1`（工具链模块从 goproxy.cn 下载，绕开本机坏 GOROOT；或重装本机 Go）
+- **linkname**：go1.26.x 构建 boxdd 需 `-ldflags=-checklinkname=0`；**go1.27.1 起不再需要**
+- **sing-tun 新伪版本拉不到时**（goproxy.cn 对 GitHub 的按需抓取偶发 "temporarily unavailable"，通常几小时恢复）：本地临时 `go mod edit -replace=github.com/sagernet/sing-tun=/home/kaishuai/project/singbox-0/sing-tun-freebsd` 构建，**提交前改回伪版本**（CI 在 GitHub runner 上直连无此问题，工作流已设 `GOFLAGS=-mod=mod` 容缺 go.sum）
 - 交叉编译即可，**不需要 FreeBSD 机器参与构建**；产物是 FreeBSD 原生静态 ELF（`file` 验证：`ELF 64-bit ... (FreeBSD), statically linked`）
-- 版本号命名约定：上游版本 + `f`（如 `1.14f`），仅构建时注入，代码零改动
+- 版本号命名约定：上游版本 + `f`（如 `1.14.1f`），仅构建时注入，代码零改动
 
 ---
 
