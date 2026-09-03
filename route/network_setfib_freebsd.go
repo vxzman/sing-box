@@ -138,6 +138,11 @@ func findDefaultGateways() (gateway4 netip.Addr, gateway6 netip.Addr, gateway6In
 			if isIPv6Gateway {
 				gateway6 = netip.AddrFrom16(gateway.IP)
 				gateway6Index = routeMessage.Index
+				if gateway6Index == 0 && len(routeMessage.Addrs) > unix.RTAX_IFP {
+					if linkAddr, ok := routeMessage.Addrs[unix.RTAX_IFP].(*route.LinkAddr); ok {
+						gateway6Index = linkAddr.Index
+					}
+				}
 			}
 		}
 	}
@@ -168,7 +173,15 @@ func execRoute(fib int, rtmType int, destination netip.Prefix, gateway netip.Add
 		routeMessage.Addrs = make([]route.Addr, syscall.RTAX_MAX)
 		routeMessage.Addrs[syscall.RTAX_DST] = &route.Inet6Addr{IP: destination.Addr().As16()}
 		routeMessage.Addrs[syscall.RTAX_NETMASK] = &route.Inet6Addr{IP: netip.MustParseAddr(net.IP(net.CIDRMask(destination.Bits(), 128)).String()).As16()}
-		routeMessage.Addrs[syscall.RTAX_GATEWAY] = &route.Inet6Addr{IP: gateway.As16()}
+		gatewayIP := gateway.As16()
+		if gateway.IsLinkLocalUnicast() && gatewayIndex != 0 {
+			// FreeBSD KAME kernel requires the interface index embedded in
+			// bytes 2-3 (s6_addr16[1]) of link-local addresses for neighbor
+			// discovery / L2 resolution to match the interface zone.
+			gatewayIP[2] = byte(gatewayIndex >> 8)
+			gatewayIP[3] = byte(gatewayIndex)
+		}
+		routeMessage.Addrs[syscall.RTAX_GATEWAY] = &route.Inet6Addr{IP: gatewayIP}
 		if gatewayIndex != 0 {
 			// Scope the gateway to its interface, which is required for
 			// link-local IPv6 gateways.
